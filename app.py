@@ -4,7 +4,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 import streamlit as st
 from query import query_rag_pipeline
-import shutil
 
 st.set_page_config(page_title="Document Q&A Bot", page_icon="📚", layout="wide")
 
@@ -53,17 +52,12 @@ if uploaded_files:
 # Show existing documents
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 📄 Documents:")
-colors = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7"]
 
 if os.path.exists(DATA_DIR):
     files = os.listdir(DATA_DIR)
     if files:
-        for i, file in enumerate(files):
-            color = colors[i % len(colors)]
-            st.sidebar.markdown(
-                f'<div style="background-color:{color}; padding:8px; border-radius:8px; margin:5px 0; color:black; font-weight:bold;">📄 {file}</div>',
-                unsafe_allow_html=True
-            )
+        for file in files:
+            st.sidebar.markdown(f"📄 {file}")
     else:
         st.sidebar.markdown("No documents yet. Upload some!")
 
