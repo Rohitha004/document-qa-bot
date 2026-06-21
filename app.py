@@ -2,13 +2,10 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
-import sys
-import os
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
-
 import streamlit as st
 from query import query_rag_pipeline
 import base64
+from pypdf import PdfReader
 
 st.set_page_config(page_title="Document Q&A Bot", page_icon="📚", layout="wide")
 
@@ -20,18 +17,11 @@ st.sidebar.title("📁 Uploaded Documents")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
-def show_pdf(file_path):
-    with open(file_path, "rb") as f:
-        base64_pdf = base64.b64encode(f.read()).decode('utf-8')
-    pdf_display = f'''
-        <iframe 
-            src="data:application/pdf;base64,{base64_pdf}" 
-            width="100%" 
-            height="600px" 
-            type="application/pdf">
-        </iframe>
-    '''
-    st.markdown(pdf_display, unsafe_allow_html=True)
+def show_pdf_text(file_path):
+    reader = PdfReader(file_path)
+    for i, page in enumerate(reader.pages):
+        st.markdown(f"**--- Page {i+1} ---**")
+        st.write(page.extract_text())
 
 if os.path.exists(DATA_DIR):
     files = os.listdir(DATA_DIR)
@@ -44,16 +34,24 @@ if os.path.exists(DATA_DIR):
         if selected_file:
             file_path = os.path.join(DATA_DIR, selected_file)
             st.subheader(f"📄 {selected_file}")
-            if selected_file.endswith(".pdf"):
-                show_pdf(file_path)
-            elif selected_file.endswith(".docx"):
-                st.info("DOCX preview not supported. Please download to view.")
+
+            col1, col2 = st.columns([3, 1])
+            with col2:
                 with open(file_path, "rb") as f:
                     st.download_button(
-                        label="⬇️ Download Document",
+                        label="⬇️ Download",
                         data=f,
                         file_name=selected_file
                     )
+
+            if selected_file.endswith(".pdf"):
+                show_pdf_text(file_path)
+            elif selected_file.endswith(".docx"):
+                from docx import Document
+                doc = Document(file_path)
+                for para in doc.paragraphs:
+                    if para.text.strip():
+                        st.write(para.text)
     else:
         st.sidebar.markdown("No documents found!")
 else:
