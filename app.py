@@ -4,25 +4,60 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 import streamlit as st
 from query import query_rag_pipeline
-from pypdf import PdfReader
-from docx import Document
+import shutil
 
 st.set_page_config(page_title="Document Q&A Bot", page_icon="📚", layout="wide")
 
 st.title("📚 Document Q&A Bot")
-st.markdown("Ask any question from the uploaded documents!")
+st.markdown("Upload your documents and ask any question!")
 
 # Sidebar
-st.sidebar.title("📁 Uploaded Documents")
+st.sidebar.title("📁 Document Manager")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
+# File uploader
+st.sidebar.markdown("### ⬆️ Upload Documents")
+uploaded_files = st.sidebar.file_uploader(
+    "Upload PDF or DOCX files",
+    type=["pdf", "docx"],
+    accept_multiple_files=True
+)
+
+if uploaded_files:
+    os.makedirs(DATA_DIR, exist_ok=True)
+    for uploaded_file in uploaded_files:
+        file_path = os.path.join(DATA_DIR, uploaded_file.name)
+        with open(file_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+    st.sidebar.success(f"✅ {len(uploaded_files)} file(s) uploaded!")
+
+    if st.sidebar.button("🔄 Index Documents"):
+        with st.spinner("Indexing documents... Please wait..."):
+            try:
+                from ingest import extract_pdf_pages, extract_docx_pages, chunk_extracted_pages, save_to_vector_db
+                all_pages = []
+                files = os.listdir(DATA_DIR)
+                for file in files:
+                    file_path = os.path.join(DATA_DIR, file)
+                    if file.endswith(".pdf"):
+                        all_pages.extend(extract_pdf_pages(file_path))
+                    elif file.endswith(".docx"):
+                        all_pages.extend(extract_docx_pages(file_path))
+                chunks = chunk_extracted_pages(all_pages)
+                save_to_vector_db(chunks)
+                st.sidebar.success("✅ Documents indexed successfully!")
+            except Exception as e:
+                st.sidebar.error(f"Error: {e}")
+
+# Show existing documents
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 📄 Documents:")
 colors = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7"]
 
 if os.path.exists(DATA_DIR):
     files = os.listdir(DATA_DIR)
     if files:
-        st.sidebar.markdown("**Documents:**")
         for i, file in enumerate(files):
             color = colors[i % len(colors)]
             st.sidebar.markdown(
@@ -30,15 +65,13 @@ if os.path.exists(DATA_DIR):
                 unsafe_allow_html=True
             )
     else:
-        st.sidebar.markdown("No documents found!")
-else:
-    st.sidebar.markdown("No documents folder found!")
+        st.sidebar.markdown("No documents yet. Upload some!")
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("**How to use:**")
-st.sidebar.markdown("1. View documents listed above")
-st.sidebar.markdown("2. Type your question below")
-st.sidebar.markdown("3. Get answers with citations!")
+st.sidebar.markdown("1. Upload PDF or DOCX files")
+st.sidebar.markdown("2. Click Index Documents")
+st.sidebar.markdown("3. Ask questions below!")
 
 # Chat section
 if "messages" not in st.session_state:
